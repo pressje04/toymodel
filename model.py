@@ -75,7 +75,7 @@ def sigmoid(z):
     return 1.0 / (1.0 + np.exp(-z))
 
 """
-"Rectified Linear Unity
+"Rectified Linear Unit
 
 Introduces nonlinearity to the network and prevents it from collapsing
 into a single linear transformation
@@ -129,3 +129,64 @@ def accuracy(y_true, y_prob):
 
 # Model: 2-layer MLP (Multi-layer Perceptron) (2 -> hidden -> 1)
 # input layer, one or more hidden layers, and an output layer
+#perfect for back propagation which we'll need to do
+
+rng = np.random.default_rng(42)
+D_in = 2
+H = 16
+D_out = 1
+
+#init for ReLU layer, small init for output
+W1 = rng.standard_normal((D_in, H)) * np.sqrt(2.0/D_in)
+b1 = np.zeros((H,))
+W2 = rng.standard_normal((H, D_out)) * 0.1
+b2 = np.zeros((D_out,))
+
+#Training the model
+lr = 0.05 #learning rate - scalar multiplier on gradient vector
+#small lr means tiny cautious jumps for training and larger lr means bigger jumps
+epochs = 2000 #Passes through the data set/how many times we train it
+
+for epoch in range(1, epochs + 1):
+    z1 = X_train @ W1 + b1 #(N, H) 
+    #matrix multiplies inputs with first layer weights and then adds bias
+    #essentially each input point is projected into H hidden features
+    a1 = relu(z1) #(N, H)
+    z2 = a1 @ W2 + b2 #(N, 1)
+    y_prob = sigmoid(z2).reshape(-1) #(N,)
+
+    loss = bce_loss(y_train, y_prob)
+
+    #Bacwkard propagation (manual gradients)
+    N = X_train.shape[0]
+    dz2 = (y_prob - y_train) / N #(N,)
+    dz2 = dz2.reshape(-1, 1)
+
+    dW2 = a1.T @ dz2
+    db2 = dz2.sum(axis=0)
+
+    da1 = dz2 @ W2.T
+    dz1 = da1 * relu_grad(z1)
+
+    dW1 = X_train.T @ dz1
+    db1 = dz1.sum(axis=0)
+
+    #Update here
+    W1 -= lr * dW1
+    b1 -= lr * db1
+    W2 -= lr * dW2
+    b2 -= lr * db2
+
+    #Periodically evaluate every 200 runs
+    if epoch % 200 == 0 or epoch == 1:
+        z1v = X_val @ W1 + b1
+        a1v = relu(z1v)
+        z2v = a1v @ W2 + b2
+        yv_prob = sigmoid(z2v).reshape(-1)
+
+        val_loss = bce_loss(y_val, yv_prob)
+        train_acc = accuracy(y_train, y_prob)
+        val_acc = accuracy(y_val, yv_prob)
+
+        print(f"epoch {epoch:4d} | loss {loss:.4f} | val_loss {val_loss:.4f} | accuracy {train_acc:.3f} | val_acc {val_acc:.3f}")
+print("done")
